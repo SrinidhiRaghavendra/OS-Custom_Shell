@@ -1,5 +1,5 @@
-#include<stdio.h>
 #include<string.h>
+#include "execute.h"
 
 int main() {
     int stop = 0;
@@ -11,8 +11,14 @@ int main() {
             printf("Exiting mysh. Bye!!!");
             stop = 1;
             break;
+        } else {
+            char *cmdbuf=NULL;
+            size_t cmdbufsize=0;
+            getline(&cmdbuf,&cmdbufsize,stdin);
+            strcat(cmd, " ");
+            strcat(cmd, cmdbuf);
+            executeCommand(cmd);
         }
-        printf("your command: %s\n",cmd);
     }
     return 0;
 }
