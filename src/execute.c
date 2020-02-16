@@ -36,7 +36,10 @@ int executeCommand(char* cmd) {
     if(pid == 0) {
         //exec tthe program
         int status = execvp(tokens[0], tokens);
-        exit(2);
+        if (status == -1) {
+            perror("execvp");
+            exit(EXIT_FAILURE);
+        }
     } else {
         int status;
         int ret = waitpid(pid, &status,  0);
