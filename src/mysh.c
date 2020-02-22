@@ -2,6 +2,7 @@
 #include "execute.h"
 
 int main() {
+    setbuf(stdout,0);
     int stop = 0;
     char* cmd; 
     while(!stop) {
