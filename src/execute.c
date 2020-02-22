@@ -51,6 +51,11 @@ int executeWithoutPipes(char *cmd) {
     char *outputDelim = ">";
     char *copy = (char *)malloc(strlen(cmd));
     strcpy(copy, cmd);
+    if(strchr(copy, '<') != NULL) {
+        hasInputRedirection = 1;
+    } if(strchr(copy, '>') != NULL) {
+        hasOutputRedirection = 1;
+    }
     char *actualCmd, *inputFile, *outputFile, *back;
     char **localTokens;
     int fdInputFile = 0;
@@ -79,13 +84,17 @@ int executeWithoutPipes(char *cmd) {
         actualCmd = cmd;
     }
     if(hasInputRedirection) {
-        inputFile += 1;
+        if(inputFile[0] == ' ') {
+            inputFile += 1;
+        }
         back = inputFile + strlen(inputFile) - 1;
         *back = '\0';
         fdInputFile = open(inputFile, O_RDONLY);
     }
     if(hasOutputRedirection) {
-        outputFile += 1;
+        if(outputFile[0] == ' ') {
+            outputFile += 1;
+        }
         back = outputFile + strlen(outputFile) - 1;
         *back = '\0';
         fdOutputFile = open(outputFile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
