@@ -100,6 +100,10 @@ int executeWithoutPipes(char *cmd) {
         fdOutputFile = open(outputFile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
     }
     localTokens = getCmdLine(actualCmd);
+    if(strcmp(localTokens[0], "cd") == 0) {
+        chdir(localTokens[1]);
+        return 0;
+    }
     pid_t pid = fork();
     if(pid == 0) {
         //exec tthe program
@@ -131,9 +135,10 @@ int executeWithoutPipes(char *cmd) {
 }
 
 int executeCommand(char* cmd) {
-    hasInputRedirection = hasMultipleCommands = hasOutputRedirection = 0;
+    hasInputRedirection = hasOutputRedirection = 0;
+    hasMultipleCommands = (strchr(cmd, '|') != NULL);
     if(hasMultipleCommands)  {
-        char *copy = (char *)malloc(strlen(cmd) + 1);
+        char *copy = (char *)malloc(strlen(cmd));
         strcpy(copy, cmd);
         char** tokens=getCmdLine(copy);
         executeMultipleCommands(copy, tokens);
