@@ -39,7 +39,7 @@ char** getCmdLine(char* cmd, char *seperator) {
 	return tokens;
 }
 
-int executeWithoutPipes(char *cmd, int inputFd, int outputFd, int pipeCmdNumber) {
+int executeSingleCommand(char *cmd, int inputFd, int outputFd, int isFirstCmd, int isLastCmd) {
     char *inputDelim = "<";
     char *outputDelim = ">";
     char *copy = (char *)malloc(strlen(cmd));
@@ -106,12 +106,12 @@ int executeWithoutPipes(char *cmd, int inputFd, int outputFd, int pipeCmdNumber)
             }
             fdInputFile = inputFd;
         }
-        dup2(fdInputFile, STDIN_FILENO);
-        close(fdInputFile);
-        if(pipeCmdNumber > 0 && hasInputRedirection) {//second one onwards cannot have an input redirection
-            perror("Has INPUT redirection in the middle of a piped command\n");
+        if(!isFirstCmd && hasInputRedirection) {//second one onwards cannot have an input redirection
+            perror("Has input redirection in a command other than the first in a piped command\n");
             exit(EXIT_FAILURE);
         }
+        dup2(fdInputFile, STDIN_FILENO);
+        close(fdInputFile);
     }
     if(hasOutputRedirection || outputFd != -1) {
         close(STDOUT_FILENO);
@@ -121,12 +121,12 @@ int executeWithoutPipes(char *cmd, int inputFd, int outputFd, int pipeCmdNumber)
             }
             fdOutputFile = outputFd;
         }
-        dup2(fdOutputFile, STDOUT_FILENO);
-        close(fdOutputFile);
-        if(pipeCmdNumber != -1 && hasOutputRedirection) {// All except last command cannot have an output redirection
-            perror("Has output redirection in the middle of a piped command\n");
+        if(!isLastCmd && hasOutputRedirection) {// All except last command cannot have an output redirection
+            perror("Has output redirection in a command other than the last in a piped command\n");
             exit(EXIT_FAILURE);
         }
+        dup2(fdOutputFile, STDOUT_FILENO);
+        close(fdOutputFile);
     }
     int status = execvp(localTokens[0], localTokens);
     if (status == -1) {
@@ -151,7 +151,8 @@ int executeMultipleCommands(char *cmd, int cmdNum, int inputFd) {
     pid_t pid = fork();
     if(pid == 0) {
         close(pfds[0]);
-        executeWithoutPipes(tokens[cmdNum], (cmdNum == 0 ? -1 : inputFd), (cmdNum == (localCopyNumTokens - 1) ? -1 : pfds[1]), (cmdNum == (localCopyNumTokens-1) ? -1 : cmdNum));
+        executeSingleCommand(tokens[cmdNum], (cmdNum == 0 ? -1 : inputFd), (cmdNum == (localCopyNumTokens - 1) ? -1 : pfds[1]), (cmdNum == 0 ? 1 : 0), (cmdNum == (localCopyNumTokens-1) ? 1 : 0));
+        exit(EXIT_SUCCESS);
     }
     else {
         close(pfds[1]);
@@ -178,7 +179,7 @@ int executeCommand(char* cmd) {
         int status;
         pid_t pid = fork();
         if(pid == 0) {
-            executeWithoutPipes(cmd, -1, -1, -1);
+            executeSingleCommand(cmd, -1, -1, 1, 1);
         } else {
             int status;
             int ret = waitpid(pid, &status,  0);
