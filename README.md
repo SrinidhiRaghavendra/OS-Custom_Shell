@@ -7,6 +7,13 @@ A C program that:
 2. Reads a command from standard input, terminated by a newline (enter on the keyboard)
 3. Execute the command it just read.
 
+Comiple and Run instructions:
+
+Compile:
+Go to the source directory containing the project and run 'make' command. This compiles the source code in ./src directory and creates an executable mysh in ./build directory.
+
+Run:
+Run './build/mysh' from the source directory.
 
 Notes:
 1. For all redirections and pipes, make sure to add white space before and after '<' or '>' or '|' symbols.
