@@ -44,7 +44,6 @@ int executeWithoutPipes(char *cmd, int inputFd, int outputFd, int pipeCmdNumber)
     char *outputDelim = ">";
     char *copy = (char *)malloc(strlen(cmd));
     strcpy(copy, cmd);
-    free(copy);
     if(strchr(copy, '<') != NULL) {
         hasInputRedirection = 1;
     } if(strchr(copy, '>') != NULL) {
@@ -65,14 +64,14 @@ int executeWithoutPipes(char *cmd, int inputFd, int outputFd, int pipeCmdNumber)
         char *cmdPart2 = strtok(NULL, outputDelim);
         if(strchr(cmdPart1, '<') != NULL) {
             //input redirection is here, split part 1 on "<" to get cmd and input file in thst order
-            actualCmd = strtok(cmdPart1, "<");
-            inputFile = strtok(NULL, "<");
+            actualCmd = strtok(cmdPart1, inputDelim);
+            inputFile = strtok(NULL, inputDelim);
             outputFile = cmdPart2;
         } else {
             //input redirection is here, split part 1 on ">" to get output file and input file in that order
             actualCmd = cmdPart1;
-            outputFile = strtok(cmdPart2, "<");
-            inputFile = strtok(NULL, "<");
+            outputFile = strtok(cmdPart2, inputDelim);
+            inputFile = strtok(NULL, inputDelim);
         }
     } else {
         actualCmd = cmd;
@@ -98,48 +97,50 @@ int executeWithoutPipes(char *cmd, int inputFd, int outputFd, int pipeCmdNumber)
         fdOutputFile = open(outputFile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR | S_IREAD);
     }
     localTokens = getCmdLine(actualCmd, " \t\v\f\n\r");
-    //pid_t pid = fork();
-    int stdout = 0;
-    //if(pid == 0) {
-        //exec tthe program
-        if(hasInputRedirection || inputFd != -1) {
-            //close(STDIN_FILENO);
-            if(inputFd != -1) {
-                fdInputFile = inputFd;
+    //exec tthe program
+    if(hasInputRedirection || inputFd != -1) {
+        close(STDIN_FILENO);
+        if(inputFd != -1) {
+            if(hasInputRedirection) {
+                close(fdInputFile);
             }
-            dup2(fdInputFile, STDIN_FILENO);
-            //close(fdInputFile);
-            if(pipeCmdNumber > 0 && hasInputRedirection) {//second one onwards cannot havbe an input redirection
-                perror("Has INPUT redirection in the middle of a piped command\n");
-                exit(EXIT_FAILURE);
-            }
+            fdInputFile = inputFd;
         }
-        if(hasOutputRedirection || outputFd != -1) {
-            //close(STDOUT_FILENO);
-            if(outputFd != -1) {
-                fdOutputFile = outputFd;
-            }
-            dup2(fdOutputFile, STDOUT_FILENO);
-            //close(fdOutputFile);
-            if(pipeCmdNumber != -1 && hasOutputRedirection) {// All except last command cannot have an output redirection
-                perror("Has output redirection in the middle of a piped command\n");
-                exit(EXIT_FAILURE);
-            }
-        }
-        int status = execvp(localTokens[0], localTokens);
-        if (status == -1) {
-            perror("execvp");
+        dup2(fdInputFile, STDIN_FILENO);
+        close(fdInputFile);
+        if(pipeCmdNumber > 0 && hasInputRedirection) {//second one onwards cannot have an input redirection
+            perror("Has INPUT redirection in the middle of a piped command\n");
             exit(EXIT_FAILURE);
         }
-    //}
-    return stdout;
+    }
+    if(hasOutputRedirection || outputFd != -1) {
+        close(STDOUT_FILENO);
+        if(outputFd != -1) {
+            if(hasOutputRedirection) {
+                close(fdOutputFile);
+            }
+            fdOutputFile = outputFd;
+        }
+        dup2(fdOutputFile, STDOUT_FILENO);
+        close(fdOutputFile);
+        if(pipeCmdNumber != -1 && hasOutputRedirection) {// All except last command cannot have an output redirection
+            perror("Has output redirection in the middle of a piped command\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+    int status = execvp(localTokens[0], localTokens);
+    if (status == -1) {
+        perror("execvp");
+        exit(EXIT_FAILURE);
+    }
+    free(copy);
+    return 0;
 }
 
 int executeMultipleCommands(char *cmd, int cmdNum, int inputFd) {
     char *copy = (char *)malloc(strlen(cmd));
     strcpy(copy, cmd);
     char **tokens = getCmdLine(copy, "|");
-    free(copy);
     int localCopyNumTokens = numTokens;
     if(cmdNum >= localCopyNumTokens) {
         return 0;
@@ -163,6 +164,7 @@ int executeMultipleCommands(char *cmd, int cmdNum, int inputFd) {
         executeMultipleCommands(cmd, cmdNum + 1, pfds[0]);
         close(pfds[0]);
     }
+    free(copy);
     return 0;
 }
 
@@ -170,10 +172,7 @@ int executeCommand(char* cmd) {
     hasInputRedirection = hasOutputRedirection = 0;
     hasMultipleCommands = (strchr(cmd, '|') != NULL);
     if(hasMultipleCommands)  {
-        char *copy = (char *)malloc(strlen(cmd));
-        strcpy(copy, cmd);
-        executeMultipleCommands(copy, 0, -1);
-        free(copy);
+        executeMultipleCommands(cmd, 0, -1);
     }
     else {
         int status;
