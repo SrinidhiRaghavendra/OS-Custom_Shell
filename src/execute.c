@@ -99,6 +99,10 @@ int executeSingleCommand(char *cmd, int inputFd, int outputFd, int isFirstCmd, i
     localTokens = getCmdLine(actualCmd, " \t\v\f\n\r");
     //exec tthe program
     if(hasInputRedirection || inputFd != -1) {
+        if(!isFirstCmd && hasInputRedirection) {//second one onwards cannot have an input redirection
+            perror("Has input redirection in a command other than the first in a piped command\n");
+            exit(EXIT_FAILURE);
+        }
         close(STDIN_FILENO);
         if(inputFd != -1) {
             if(hasInputRedirection) {
@@ -106,14 +110,14 @@ int executeSingleCommand(char *cmd, int inputFd, int outputFd, int isFirstCmd, i
             }
             fdInputFile = inputFd;
         }
-        if(!isFirstCmd && hasInputRedirection) {//second one onwards cannot have an input redirection
-            perror("Has input redirection in a command other than the first in a piped command\n");
-            exit(EXIT_FAILURE);
-        }
         dup2(fdInputFile, STDIN_FILENO);
         close(fdInputFile);
     }
     if(hasOutputRedirection || outputFd != -1) {
+        if(!isLastCmd && hasOutputRedirection) {// All except last command cannot have an output redirection
+            perror("Has output redirection in a command other than the last in a piped command\n");
+            exit(EXIT_FAILURE);
+        }
         close(STDOUT_FILENO);
         if(outputFd != -1) {
             if(hasOutputRedirection) {
@@ -121,13 +125,10 @@ int executeSingleCommand(char *cmd, int inputFd, int outputFd, int isFirstCmd, i
             }
             fdOutputFile = outputFd;
         }
-        if(!isLastCmd && hasOutputRedirection) {// All except last command cannot have an output redirection
-            perror("Has output redirection in a command other than the last in a piped command\n");
-            exit(EXIT_FAILURE);
-        }
         dup2(fdOutputFile, STDOUT_FILENO);
         close(fdOutputFile);
     }
+    setbuf(stdout,0);
     int status = execvp(localTokens[0], localTokens);
     if (status == -1) {
         perror("execvp");
@@ -152,7 +153,6 @@ int executeMultipleCommands(char *cmd, int cmdNum, int inputFd) {
     if(pid == 0) {
         close(pfds[0]);
         executeSingleCommand(tokens[cmdNum], (cmdNum == 0 ? -1 : inputFd), (cmdNum == (localCopyNumTokens - 1) ? -1 : pfds[1]), (cmdNum == 0 ? 1 : 0), (cmdNum == (localCopyNumTokens-1) ? 1 : 0));
-        exit(EXIT_SUCCESS);
     }
     else {
         close(pfds[1]);
