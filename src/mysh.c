@@ -4,7 +4,7 @@
 int main() {
     setbuf(stdout,0);
     int stop = 0;
-    char* cmd; 
+    char cmd[4096]; 
     while(!stop) {
         printf("mysh>");
         
